@@ -1,3 +1,7 @@
+# Gumiho-Network
+
+This is an implementation of the network found [here](https://arxiv.org/pdf/1810.09133.pdf). The implementation is modular, setup to process batches, and adapatable to different encoding/decoding networks.
+
 # Setup
 
 ```bash
