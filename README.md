@@ -1,11 +1,4 @@
-# Questions
-
-- Should we be including `KL_loss` in `_phase_two`?
-- It looks like the TPR and FPR are saturated. Is there an obvious reason for this?
-- Does the network correctly reflect the training order described in the paper?
-- Does the training order described in the paper make sense?
-
-# Install
+# Setup
 
 ```bash
 pip install virtualenv
@@ -21,7 +14,7 @@ deactivate
 - `ae.py` is an autoencoder and data loading functions
 - `vae.py` is supporting abstractions to variational autoencoder
 - `gumiho.py` is a VAE network with support for multiple tails
-- `gumiho_descriminator.py` is the complete network
+- `gumiho_descriminator.py` contains a descriminating generator and the complete network
 
 All greek letters in the paper are used directly. I use the terms False Atypical Rate and True Atypical Rate instead of `FPR` and `TPR`
 
