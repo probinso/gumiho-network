@@ -6,7 +6,7 @@ This implements the network found [here](https://arxiv.org/pdf/1810.09133.pdf). 
 
 # Notes
 
-There are admittedly no comments in this project. I suggest readers to ramp up code by complexity of network. A basic understanding of Variational Auto Encoders is suggested to read and understand this code. Additionally, the [research paper](https://arxiv.org/pdf/1810.09133.pdf) this work is based on is a good resource for understanding the final product.
+There are admittedly no comments in this project, but id survided 5 re-writes in persuit of clear implementation. I suggest readers to ramp up code by complexity of network. A basic understanding of Variational Auto Encoders is suggested to read and understand this code. Additionally, the [research paper](https://arxiv.org/pdf/1810.09133.pdf) this work is based on is a good resource for understanding the final product.
 
 It is easiest to ramp onto this technology by following these files by complexity as listed below
 
