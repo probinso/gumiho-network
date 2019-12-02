@@ -1,38 +1,23 @@
-#!/home/probinso/git/Research/code/pytorch/venv/bin/python
-
 from collections import namedtuple
 from itertools import islice
 from math import floor
 from pathlib import Path
-# import string
-# import psutil
 
-# from matplotlib import pyplot as plt
 from tqdm import tqdm
-
 import torch
-# import torch.nn as nn
 
 from ae import ConvEncoder, ConvDecoder, Identity
 from vae import GaussianSample
 from gumiho import GumihoNetwork, data_initializer
 from gmm import GMM
 
+# import psutil
 # import ray
 # ray.init(num_cpus=psutil.cpu_count() - 1)
 
 from tqdm import trange
 
 Phi = namedtuple('Phi', ['z', 'rho'])
-# class Phi:
-#     def __init__(self, z, rho):
-#         self.z = z
-#         self.rho = rho
-#
-#     def __repr__(self):
-#         return f'Phi(z={self.z}, rho={self.rho})'
-
-
 AScore = namedtuple('AScore', ['encoding', 'anomaly_score'])
 
 
@@ -97,7 +82,6 @@ class DiscriminatorNetwork(CondGeneratorNetwork):
             bottle_size=self.h_size,
             data_shape=self.data_shape
         )
-        # self.elementloss = nn.Sequential(nn.BCELoss(reduction='none'))
 
         self.add_cond('disc', self._discriminator_cond_z)
         self.add_tail('disc', self._mirror, self._discriminator_loss)
@@ -246,12 +230,10 @@ if __name__ == '__main__':
                     with torch.no_grad():
                         Out = model(batch, tail='MM')
                         J = model.loss(batch, *Out, tail='MM')
-                        # print(J)
                         z, *_ = Out
                         model.MM.update(z, J)
 
         print('_phase_two')
-        # p = Print()
         t = trange(epocs, desc='phase_two')
         maxloss = -1
         for epoc in t:
@@ -269,7 +251,6 @@ if __name__ == '__main__':
                 J = model.loss(batch, *Out, tail='disc')
                 if J > maxloss:
                     maxloss = J
-                # print(J)
                 t.set_description(
                     'phase_two (loss={:.8f})'.format(J / maxloss)
                 )
@@ -283,7 +264,6 @@ if __name__ == '__main__':
                 with torch.no_grad():
                     Out = model(batch, tail='MM')
                     J = model.loss(batch, *Out, tail='MM')
-                    # print(J)
                     z, *_ = Out
                     model.MM.update(z, J)
 
