@@ -27,63 +27,67 @@ class VariationalAutoEncoder(AutoEncoder):
     ):
         super().__init__(
             bottle_size=h_size, data_shape=data_shape,
-            EncoderType=EncoderType, DecoderType=DecoderType, encoder=encoder)
+            EncoderType=EncoderType, DecoderType=DecoderType,
+            encoder=encoder)
         self.z_size = z_size
         self.h_size = h_size
 
-        self.μ = nn.Linear(h_size, z_size)
-        self.logσ = nn.Linear(h_size, z_size)
-        self.η = nn.Linear(z_size, h_size)
+        self.mu = nn.Linear(h_size, z_size)
+        self.logsigma = nn.Linear(h_size, z_size)
+        self.eta = nn.Linear(z_size, h_size)
 
     def parametrs(self):
         return chain(
             super().parameters(),
-            self.logσ.parameters(),
-            self.η.parameters(),
-            self.μ.paramerters()
+            self.logsigma.parameters(),
+            self.eta.parameters(),
+            self.mu.paramerters()
         )
 
     @classmethod
-    def _reparameterize(cls, μ, logσ):
-        std = logσ.mul(0.5).exp_()
+    def _reparameterize(cls, mu, logsigma):
+        std = logsigma.mul(0.5).exp_()
         # return torch.normal(mu, std)
-        ε = torch.randn_like(μ)
-        z = μ + std * ε
+        epsilon = torch.randn_like(mu)
+        z = mu + std * epsilon
         return z
 
     def bottle(self, h):
-        μ = self.μ(h)
-        logσ = self.logσ(h)
-        z = self._reparameterize(μ, logσ)
-        return z, μ, logσ
+        mu = self.mu(h)
+        logsigma = self.logsigma(h)
+        z = self._reparameterize(mu, logsigma)
+        return z, mu, logsigma
 
     def decode(self, z):
-        h = self.η(z)
+        h = self.eta(z)
         return self._decoder(h)
 
     def _sample(self, n):
-        z = torch.stack([GaussianSample(self.z_size) for _ in range(n)])
+        z = torch.stack([GaussianSample(self.z_size)
+                         for _ in range(n)])
         return z
 
     def generate(self, n=1):
         z = self._sample(n)
-        h = self.η(z)
+        h = self.eta(z)
         return self._decoder(h)
 
     def forward(self, X):
         h = self.encode(X)
-        z, μ, logσ = self.bottle(h)
+        z, mu, logsigma = self.bottle(h)
         Y = self.decode(z)
-        return Y, μ, logσ
+        return Y, mu, logsigma
 
     @classmethod
-    def _KL_loss(cls, μ, logσ):
-        return -0.5 * torch.mean(1 + logσ - μ.pow(2) - logσ.exp())
+    def _KL_loss(cls, mu, logsigma):
+        return -0.5 * torch.mean(
+            1 + logsigma - mu.pow(2) - logsigma.exp())
 
     @classmethod
     def loss(cls, X, *args):
-        Y, μ, logσ, *_ = args
-        return cls._KL_loss(μ, logσ) + cls.reconstruction_error(Y, X)
+        Y, mu, logsigma, *_ = args
+        return cls._KL_loss(mu, logsigma) + \
+          cls.reconstruction_error(Y, X)
 
 
 class DisentangledVariationalAutoencoder(VariationalAutoEncoder):

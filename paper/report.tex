@@ -1,0 +1,522 @@
+\documentclass{article}
+
+\usepackage[affil-it]{authblk}
+
+\usepackage[USenglish,american]{babel}
+
+\usepackage{amsfonts,amsmath,amsthm,amssymb}
+
+\usepackage{tikz}
+\usepackage{float}
+\setlength{\parindent}{0mm}
+\setlength{\parskip}{.5em}
+\usepackage[letterpaper, margin=1in]{geometry}
+%\usepackage{showframe}
+\usepackage{graphicx}
+
+\usepackage{titling}
+\setlength{\droptitle}{-5em}   % This is your set screw
+
+
+\usepackage{multicol,caption}
+\setlength\columnsep{25pt}
+
+
+\newenvironment{Figure}
+  {\par\medskip\noindent\minipage{\linewidth}}
+  {\endminipage\par\medskip}
+
+\usepackage{enumerate}
+
+\usepackage{verbatim}
+\usepackage{listings}
+
+\usepackage{siunitx}
+
+\usepackage{color}
+
+%%
+%% Julia definition (c) 2014 Jubobs
+%%
+\lstdefinelanguage{Julia}%
+  {morekeywords={abstract,break,case,catch,const,continue,do,else,elseif,%
+      end,export,false,for,function,immutable,import,importall,if,in,%
+      macro,module,otherwise,quote,return,switch,true,try,type,typealias,%
+      using,while},%
+   sensitive=true,%
+   alsoother={$},%
+   morecomment=[l]\#,%
+   morecomment=[n]{\#=}{=\#},%
+   morestring=[s]{"}{"},%
+   morestring=[m]{'}{'},%
+}[keywords,comments,strings]%
+
+\lstset{%
+    language         = Python,
+    basicstyle       = \tiny\ttfamily,
+    keywordstyle     = \bfseries\color{blue},
+    stringstyle      = \color{magenta},
+    commentstyle     = \color{red},
+    showstringspaces = false,
+    backgroundcolor  = \color{lightgray},
+    numbers          = left,
+    title            = \lstname,
+    numberstyle      = \tiny\color{lightgray}\ttfamily,
+    inputencoding=utf8,
+    extendedchars=true,
+    literate={á}{{\'a}}1 {ã}{{\~a}}1 {é}{{\'e}}1,
+}
+
+\begin{comment}
+\lstset{
+    language=bash, %% Troque para PHP, C, Java, etc... bash é o padrão
+    basicstyle=\ttfamily\small,
+    numberstyle=\footnotesize,
+    numbers=left,
+    backgroundcolor=\color{gray!10},
+    frame=single,
+    tabsize=2,
+    rulecolor=\color{black!30},
+    title=\lstname,
+    escapeinside={\%*}{*)},
+    breaklines=true,
+    breakatwhitespace=true,
+    framextopmargin=2pt,
+    framexbottommargin=2pt,
+}
+\end{comment}
+
+\usepackage{xspace}
+\usepackage{url}
+\usepackage{cite}
+
+\usepackage{coffee4}
+
+\newcommand{\Bold}{\mathbf}
+
+
+\title{Term Research \\ Finding Anomalies in Large Unlabeled Acoustic Data}
+
+\date{\today}
+\author{Philip Robinson}
+\affil{Oregon Health Sciences University}
+
+\begin{document}
+
+
+\maketitle
+
+\def\aa{acoustic anomalies\xspace}
+\def\ae{Auto-Encoders\xspace}
+\def\vae{Variational \ae\xspace}
+\def\gumiho{Gumiho Network\xspace}
+\def\condgen{Conditional Generating Network\xspace}
+\def\desc{Descriminator Network\xspace}
+
+\def\np{Neyman-Pearson Lemma\xspace}
+\def\pdf{probability density function\xspace}
+\def\fpr{false positive rate\xspace}
+\def\tfpr{true/false positive rate\xspace}
+\def\tpr{true positive rate\xspace}
+\def\keras{\texttt{keras}\xspace}
+\def\pytorch{\texttt{pytorch}\cite{paszke2017automatic}\xspace}
+\def\tensorflow{\texttt{tensorflow}\xspace}
+\def\ray{\texttt{ray}\xspace}
+
+\def\encoder{\texttt{encoder}\xspace}
+\def\decoder{\texttt{decoder}\xspace}
+\def\bottle{\texttt{bottle}\xspace}
+\def\GMM{\texttt{GMM}\xspace}
+
+
+
+\begin{abstract}
+University of Hawaii's Aloha Cabled Observatory (ACO) has approximately 10 years
+of unlabeled hydrophone data, in need of indexing, labeling, and cleaning; to more
+easily extract \aa.
+Currently searching the audio recordings is done at human pace by listening
+to the audio stream, or looking at it's spectrogram, which takes $\sim$ 2-20 minutes
+for every 5 minutes of audio. This is intractable at scale.
+Unfortunately, audio data is known to be high dimensional, making it
+very difficult to label raw input streams. Additionally, the properties of
+\aa are not necessarily known a priori.  \texttt{NEEDS REFERNCE AND NP-PAPER}
+
+\end{abstract}
+
+\begin{multicols}{2}
+\section{Introduction}
+
+Scientists, with University of Hawaii's Aloha Cabled Observatory (ACO),
+have gathered 10+ years of continuous audio for acoustic ocean survey studies.
+Currently searching the audio recordings is done at human pace by listening
+to the audio stream, which takes $\sim$ 2-20 minutes for every 5 minutes of
+audio, depending on experience levels. Even at its fastest, this is intractable
+at scale. Often ocean hydrophone observatories are used to survey and track
+cetations vocalizations for population measurement, acoustic analysis for
+earthquake/tectonic events, and applications in monitoring vessel traffic
+and activities.
+The ACO hydrophone data is unlabeled and growing at 1.2 terabytes per year.
+
+\begin{quote}
+{\small{\em ``Being able to automatically detect whale calls in an un-monitored system can help
+identify time-series of whale locality to the area. Being able to apply this
+detection algorithm to a long time-series of sub-sea audio, such as that from
+the ACO, allows scientists to derive a time-series of whale activity in the
+area. This can help us study the relationship between migration patterns and
+known climate events.''}
+
+- Kellen Rosburg\\Senior Ocean Computer Specialist\\OOI Cabled Array, APL/UW}
+\end{quote}
+
+In the most general form, it would be extremely useful to have a generic unsupervised
+acoustic anomaly detector, for hydrophone data. This would allow a human or machine
+reviewer to focus on only interesting data in the task of event sorting and classification.
+
+\section{Model}
+
+In prior work on acoustic anomaily detection\cite{1810.09133}
+%\texttt{
+%  Unsupervised Detection of Anomalous Sound based on Deep Learning
+%  and the Neyman-Pearson Lemma}
+address the generic task of
+anomaly detection, over image encoded \aa.
+A \vae is expected to behave as an identity function, however reconstruction error can
+be an indicator of content unseen in the training data.
+When a \vae is trained on typical data, a threshold over an anomaly score can be used
+for to flag atypical data. The paper proposes a minimization of \fpr, given a constrained
+\tpr, by expressing a threshold of reconstruction error.
+
+Proposed is an anomaly generating network. This is done by fitting
+the \vae{}'s gaussian manifold on general data, generating an under-specified \pdf (by
+minimizing KL divergence), then tighter fitting a more descriptive \pdf
+over the latent vectors of typical data projected into the gaussian manifold. Once both
+distributions are fit, rejection sampling in the form of sampling from the general
+distribution values of low probability from the descriptive distribution.
+
+Training is broken up into thee major phases. These phases contribute to
+fit the generator and discriminator networks, as well as a typical data model
+(in this case our GMM) for informing rejection sampling.
+
+The first phase updates the parameters of the encoder and the generator for all
+input data. The goal of this process is to define the general \pdf of the latent
+space of all data and a mapping to a unit gaussian manifold.
+
+%In the case of ACO
+%data, this can be accomplished by sampling high traffic periods of time
+%(like March for Blue Whales).
+
+The second phase updates the parameters of the \encoder and \texttt{descriminor} with a
+loss function that is defined by reconstruction error against a threshold,
+and an approximation of \tfpr{}s (which cannot be calculated directly). This phase
+requires sampling \aa from the unit gaussian and rejecting likely events measured by
+the specific \pdf, through the generator network.
+For the ACO typical data can be sampled from the evenings or low traffic months, as
+cetations tend to not be as vocal in the evenings; this strategy is also resilient to
+accumulative damage/drift of the equipment over time.
+
+The third phase is to update the specific \pdf modeled by a \GMM. This is repeated as necessary.
+
+Discrimination is accomplished by learning an appropriate threshold for the likelihood
+of a latent representation of an event.
+\end{multicols}
+
+\includegraphics[width=\textwidth]{./model.png}
+
+\begin{multicols}{2}
+
+\section{Topics}
+
+Due to the complex nature of this architecture, it is important to provide an
+understanding and background of supporting topics. This section introduces the
+pre-requisite knowledge to understand the final model.
+
+\subsection{\ae}
+\ae are an unsupervised neural network model that attempts to constrain an
+identity function. This is usually done by optimizing the weights of the neural
+network to reconstruction error, while passing through a low dimensional \bottle.
+
+\[J^{R}=||Input - Output||^2_2\]
+
+The \bottle, represented as a narrowing of nodes in the neural network, expresses
+a compressed representation of the original content wrt it's neighboring encoding and
+decoding networks. These networks can be thought of as learning a lossy compression
+and decompression functions. The lossy characteristic of these mapping functions is
+expressed in image data as a blurry recreation of the original content.
+
+\resizebox{.8\columnwidth}{!}{\input{./ae.tex}}
+\pagebreak
+\lstinputlisting[firstline=141, lastline=181]{../ae.py}
+
+
+\subsection{\vae}
+
+\vae are similar to \ae, however they restrict the form of manifold forming the
+\bottle to a gaussian manifold. It is important to note that trained \vae
+can be split at the \bottle, and used like a generative model. This is
+done by sampling from a unit gaussian; the samples is interpreted as a latent
+representation of an input from the \encoder. The \decoder is then used on this sample
+to generate new content that would have been encoded as the latent representation.
+
+In order to train this style of network, the loss function is complimented by
+Kullback Leibner divergence, to constrain the latent space to a gaussian manifold.
+
+\[J^{KLR}=J^R + KL(z||\mathcal{N}(0, 1))\]
+
+\resizebox{.8\columnwidth}{!}{\input{./vae.tex}}
+\lstinputlisting[firstline=23, lastline=90]{../vae.py}
+
+\subsection{Rejection Sampling}
+
+Rejection sampling is a technique used in many statistical models. Many distributions
+are difficult to sample from, however simple to evaluate likelihood against. A second
+distribution whose domain is unbiased wrt the original distribution may be elected to
+act as a proxy for sampling.
+
+The simplest example of this is in attempting to sample points from a unit circle. There
+exist known algorithms to sample from a uniform distribution. A two dimensional uniform
+distribution is equivalent to sampling from a rectangle. Rejection sampling can be used
+to sample from the unit circle by electing a 2 dimensional uniform distribution that
+encompasses the area of the target circle, and rejects points under the constraint that
+$x^2 + y^2 \le 1$.
+
+This relates to \vae because there exists known algorithms for sampling from gaussian
+distributions. We can elect any statistical model to describe typical data, that
+shares an unbiased domain with a gaussian. This typical distribution can then be used
+to form a likelihood threshold for rejection criteria. This strategy informs the core
+of the proposed model, further explained by the \np.
+
+\subsection{\np}
+
+The \np states that the likelihood ratio is the `uniformly most powerful discriminator'
+for a statistical hypothesis test. This is leveraged into forming a loss function by
+increasing the reconstruction error of anomalous data, and decreasing the reconstruction
+error of typical events in data.
+
+\[J^{NP} = FP - TP\]
+
+Theoretically a discriminator network leveraging this loss function, with known anomalous
+and typical data, will become better identity function for typical data and increasingly
+poor at reconstructing atypical data.
+
+\section{\gumiho{s}}
+
+Although this term isn't in the common nomenclature, a gumiho network refers to a network
+that has more than one tail, generating output. The intent is to use different loss functions depending
+on which network output is triggered. For \ae and \vae this allows for the learned
+encoding function to generate the same manifold, while satisfying very different loss
+enforced constraints. It is helpful, although not necessary, to choose non-competing
+loss functions.
+
+\resizebox{\columnwidth}{!}{\input{./hvae.tex}}
+
+Since the discriminator network uses a threshold over reconstruction error, the \vae
+(that uses only recognition error) is not considered a non-competing loss function.
+This conditional training, dependent on the evaluation path lends itself to \pytorch
+over \keras. This will be discussed in greater detail in the next section.
+
+
+\section{Implementation}
+
+Systems like \keras and \tensorflow use a precompiled execution graph, to facilitate
+more predictable back propogation. For this model, there is a parameterized
+discriminating function in the \bottle of the network. Additional complexity is added,
+due to the sharing \encoder variables across multiple \decoder networks. \pytorch doesn't
+restrict the model to precompiled execution graphs and allows for use of the
+\texttt{torch.no\_grad()} context manager in order to restrict when variables can be
+treated to not need back propogation.
+
+The user provides an \encoder, \decoder, the interfacing dimension size $h$,
+the \bottle dimmension size $z$, and the count of mixtures for the \GMM $M$. The \encoder
+and \decoder are expected to reduce the input to and from a linear layer of size $h$.
+A linear \bottle layer is provided to map from $h$ to $z$
+dimmensions and extract $\mu$ and $\sigma$ to inform KL loss by reparameterization. The
+\decoder is then preceded by a provided layer $\eta$ that maps back from $z$ to $h$
+dimmensions. This abstraction layer makes it much easier to modularize the network.
+
+The code represents a direct inheritance principled on object oriented design of machine
+learning models. \desc is a \condgen, is a \gumiho, is a \vae, is a \ae.
+
+\subsection{\gumiho}
+
+The \gumiho is the first unfamilure network abstraction, and therefore starts the descriptive
+sections of this text.
+
+The \gumiho is a \vae with multiple goal states. A user can add additional \decoder{s}
+and cooresponding loss functions. This allows a trained model to develop an embedding
+optimized, not only for reconstruction but, for various additional goals like classification.
+The \texttt{add\_tail(self, network, loss)} method requires the network can be fed by an $h$
+dimensional linear layer.
+
+\lstinputlisting[firstline=15, lastline=49]{../gumiho.py}
+
+
+\subsection{\condgen}
+
+In a \vae, the embedding is mapped to a gaussian manifold. This means that sampling from
+a unit gaussian and passing data through a \decoder will generate results cooresponding to the
+\decoder's goal. When used with the tail associated with the reconstruction task, this produces
+viable input data. the \condgen allows condition to be provided to the sampled value and the
+tail elected to be specified by the user. For the final model this is a mechanism to allow the
+\GMM to be used for conditioning and the reconstructor to be used to generate anaomolies
+as found in the reference materials.
+
+\lstinputlisting[firstline=52, lastline=77]{../gumiho_descriminator.py}
+
+\subsection{\desc}
+
+The \desc models the machine specified\cite{1810.09133} for unsupervised anomaly detection.
+There are three tails, one for training the \GMM, one for discrimination, and one for
+reconstruction. The code for this model is found in the repository instead of this paper due
+to its complexity.
+
+\section{Data}
+
+The model is build to be agnostic to types of \encoder and \decoder. The expectation of the
+user is to provide models appropriate for their data. It is also expected that a loading
+\texttt{coroutine} is provided. The coroutine needs to take in the count of a batch in order
+to be trained in a consistant way.
+
+\subsection{MNIST}
+\def\mnist{\texttt{MNIST}\xspace}
+
+The \mnist data hopes to example hand written single digit entries. The
+original intent is to inform algorithms of had written digit recognition for the postal
+service. For this term project, \mnist was used to more consistently and reproducibly
+explore model building.
+
+In this trained model, the digits listed as $\{1, 7, 4\}$ were labeled as anomalous. Any other
+digit were described as typical events. The expectation of a trained network is to
+generate high accuracy reconstructions of $\{2,3,5,6,8,9\}$ and low accuracy reconstructions of
+$\{1, 7, 4\}$ compile.
+
+\begin{multicols}{3}
+\includegraphics[width=\columnwidth]{./vae-images/C.png}
+\includegraphics[width=\columnwidth]{./vae-images/E.png}
+\includegraphics[width=\columnwidth]{./vae-images/I.png}
+\end{multicols}
+
+The images above are sources and their paired results from passing the \mnist data through
+the trained \vae with loss of mean squared error.
+
+\lstinputlisting[firstline=183, lastline=226]{../ae.py}
+
+
+
+\subsection{Aloha Cabled Observatory}
+
+The ACO data is gathered at N$22^\circ45.110'$ W$158^\circ00'$. The recordings are
+encoded as, custom, variable bit-width raw peak sensor readings. Each file is saved
+as a 5 minute duration (barring hardware related problems), named with it's datetime
+stamp. The set elected for this project was 44100 samples per second. The developed
+\texttt{ACOio.py} library allows simple manual indexing and datetime-search of the data.
+
+
+
+%\begin{Figure}
+\begin{lstlisting}
+from aco import ACOio, datetime, timedelta
+
+loader = ACOio('./basedir/')
+target = datetime(
+    day=18, month=2, year=2016,
+    hour=7, minute=55
+)
+
+src = loader.load(datetime)
+snip = src[
+  timedelta(seconds=7):
+  timedelta(seconds=11)
+]
+snip.View()
+\end{lstlisting}
+%\captionof{figure}{ACOio}
+%\label{fig:acoio}
+%\end{Figure}
+
+
+
+\begin{Figure}
+
+
+  \includegraphics[width=\columnwidth]{./rawwave.png}
+  \captionof{figure}{Raw Data}
+  \label{fig:rawwav}
+\end{Figure}
+
+\newcommand{\figsite}[1]{\texttt{(Figure~\ref{#1})}\xspace}
+
+It is visible, from \figsite{fig:rawwav}
+that the direct current gain is not centered at zero, nor trivially accumulative. This
+is a consequence of changes in atmospheric pressure, due to the ocean's motion,
+effecting the signal. %A high pass filter is used to remove this, whose parameters were
+%empirically elected.
+
+\begin{comment}
+  \begin{Figure}
+  \includegraphics[width=\columnwidth]{./rawvocal.png}
+  \captionof{figure}{Raw Vocalization}
+  \label{fig:rawvoc}
+
+  \end{Figure}
+ \end{comment}
+
+It is also not obvious this track has a vocalization, highlighted in \figsite{fig:rawvoc}.
+This pattern is indicative of high amounts of noise, and is expected for all samples.
+
+\begin{Figure}
+  \includegraphics[width=\columnwidth]{./rawspec.png}
+  \captionof{figure}{Raw Spectrogram}
+  \label{fig:rawspec}
+\end{Figure}
+
+
+\begin{comment}
+
+\subsection{Spectral Subtraction}
+
+Spectral subtraction is a technique used to denoise signals with additive white noise.
+It is also, a very cheap algorithm with many variants.~\cite{specsub2008}.
+
+The sampled signal $y$ is modeled as the desired signal $x$ and background noise $b$.
+\[y[n] = x[n] + b[n]\]
+At a single frame at point $p$ and length $L$,
+
+\begin{align*}
+  Y(pL, \omega) &= X(pL, \omega) + B(pL, \omega)\\
+  |Y(pL, \omega)|^2 &= |X(pL, \omega)|^2 \\&+|B(pL, \omega)|^2 + |X(pL, \omega)*B(pL, \omega)|\\
+\end{align*}
+
+Background noise can be estimated, given sufficiently small frames, by subtracting
+the mean power spectrum from a segment of only noise. Using Welch's method~\cite{welch1976}
+we are able to estimate the mean power spectrum. This use implements an algorithm
+allowing for adjustable $\alpha$ and $\beta$ parameters, used in tuning some audio artifacts
+consequent of spectral subtraction ~\cite{Berouti1979EnhancementOS}.
+In later work, these could be learned parameters.
+\end{comment}
+
+Inspired by these plots, and studies in signal processing, the audio track can be represented
+as an image.  Expressing acoustic signals as spectrogram and mel-frequency cepstrum algorithms,
+is a common way to enable these models. This representation lends itself to many deep learning
+models. Additionally, this allows reasonable evaluation of a target model by using any well
+studied image dataset. For this project the target dataset is described in the next subsection.
+
+
+\section{Results}
+
+Unfortunately, this model never completely worked. I believe that the implementation is very close,
+however there are training steps that are not updating as expected. I believe that this is consequent
+of a lack of knowledge about \pytorch over the actual model. The code is written in a very clean and
+explainable way that mirrors the writings of the research paper. This will make the project
+much easier to source instruction and advise to improve. Additionally, in pursuit of a working solution
+the model is implemented to process over streaming data, and leverages concurrency libraries for the
+most time expensive sections. The training time of the model is currently on the order of 6 hours
+for a modern laptop without CUDA support.
+
+The code in it's current state can be found on cslu's gitlab repository\footnote{\texttt{repo.cslu.ohsu.edu/probinso/hydra-anomaly-autoencoder.git}}
+
+\bibliography{references}{}
+\bibliographystyle{plain}
+
+\end{multicols}
+
+\end{document}

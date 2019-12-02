@@ -29,9 +29,9 @@ class GumihoNetwork(VariationalAutoEncoder):
 
     def forward(self, X, *, tail):
         h = self.encode(X)
-        z, μ, logσ = self.bottle(h)
+        z, mu, logsigma = self.bottle(h)
         Y = self.decode(z, tail=tail)
-        return Y, μ, logσ
+        return Y, mu, logsigma
 
     def decode(self, z, *, tail=None):
         return self.tails[tail](z)
@@ -41,7 +41,7 @@ class GumihoNetwork(VariationalAutoEncoder):
         return self.decode(z, tail=tail)
 
     def add_tail(self, key, network, loss):
-        self.tails[key] = nn.Sequential(self.η, network)
+        self.tails[key] = nn.Sequential(self.eta, network)
         self.losses[key] = loss
 
     def loss(self, X, *params, tail=None):
