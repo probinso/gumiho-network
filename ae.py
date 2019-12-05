@@ -130,7 +130,7 @@ class ConvDecoder(BottleNetwork):
             nn.ConvTranspose2d(64, 32, kernel_size=7, stride=4),
             nn.ReLU(True),
             nn.ConvTranspose2d(32, data_shape[-1], kernel_size=2, stride=1),
-            nn.Sigmoid(),
+            # nn.Sigmoid(),
             Transpose()
         )
 

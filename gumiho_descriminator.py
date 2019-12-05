@@ -107,10 +107,10 @@ class DiscriminatorNetwork(CondGeneratorNetwork):
     @classmethod
     def reconstruction_error(cls, Y, X, pairs=False):
         if not pairs:
-            result = super().reconstruction_error(Y, X)
+            result = cls._reconstruction_error(Y, X)
         else:
             errors = [
-                super().reconstruction_error(y, x)
+                cls._reconstruction_error(y, x)
                 for y, x in zip(Y.unbind(dim=0), X.unbind(dim=0))
             ]
             result = torch.stack(errors)
@@ -142,9 +142,10 @@ class DiscriminatorNetwork(CondGeneratorNetwork):
         M = X.size()[0]
         with torch.no_grad():
             idx = floor(self.rho * M)
+
             encodings, scores = self._get_encoding_and_anomaly_score(X)
 
-            scores = sorted(scores, reverse=True)  # descending
+            scores, _ = torch.sort(scores, descending=True)
 
             nlls = self.MM.mixed_nll(encodings)
             nlls, _ = torch.sort(nlls, descending=True)
