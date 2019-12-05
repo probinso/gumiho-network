@@ -14,26 +14,22 @@ from vae import GaussianSample
 from gumiho import GumihoNetwork, data_initializer
 from gmm import GMM
 
-# import psutil
-# import ray
-# ray.init(num_cpus=psutil.cpu_count() - 1)
+import psutil
+import ray
+ray.init(
+    num_cpus=psutil.cpu_count() - 1,
+    memory=8*1024*1024*1024,
+    object_store_memory=3*1024*1024*1024
+)
+
+
+@ray.remote
+def identity(x):
+    return x
 
 
 Phi = namedtuple('Phi', ['z', 'rho'])
 AScore = namedtuple('AScore', ['encoding', 'anomaly_score'])
-
-
-# @ray.remote
-# def _get_anomaly_ray(phi_z, bottle_size, MM, decoder):
-#     with torch.no_grad():
-#         _ = torch.Tensor([float('-inf')])
-#         for steps in count():
-#             if _ >= phi_z:
-#                 break
-#             z = GaussianSample(bottle_size)
-#             _ = MM.mixed_nll([z])
-#
-#         return decoder(z)
 
 
 class CondGeneratorNetwork(GumihoNetwork):
@@ -53,7 +49,10 @@ class CondGeneratorNetwork(GumihoNetwork):
                 if self.conds[tail](z):
                     yield z
 
-        Z = torch.stack([_ for _ in islice(_local_gen(), n)])
+        g = islice(_local_gen(), n)
+        f = [identity.remote(_) for _ in g]
+        z = ray.get(f)
+        Z = torch.stack(z)
         return Z
 
     def add_cond(self, key, cond):
@@ -187,8 +186,8 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(model.parameters())  # , lr=1e-3)
 
     eras = 10
-    epocs = 600
-    batch_size = 300
+    epocs = 300
+    batch_size = 400
     steps = 1
     i = 0
 
