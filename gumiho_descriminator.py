@@ -4,7 +4,10 @@ from math import floor
 from pathlib import Path
 
 from tqdm import tqdm
+from tqdm import trange
 import torch
+
+import matplotlib.pyplot as plt
 
 from ae import ConvEncoder, ConvDecoder, Identity
 from vae import GaussianSample
@@ -15,7 +18,6 @@ from gmm import GMM
 # import ray
 # ray.init(num_cpus=psutil.cpu_count() - 1)
 
-from tqdm import trange
 
 Phi = namedtuple('Phi', ['z', 'rho'])
 AScore = namedtuple('AScore', ['encoding', 'anomaly_score'])
@@ -59,7 +61,7 @@ class CondGeneratorNetwork(GumihoNetwork):
 
     def generate(self, n, *, cond=None, tail=None):
         z = self._sample(n, tail=cond)
-        return self.decode(z, tail=tail)
+        return self._generate_from_z(z, tail=tail)
 
 
 class DiscriminatorNetwork(CondGeneratorNetwork):
@@ -105,13 +107,14 @@ class DiscriminatorNetwork(CondGeneratorNetwork):
     @classmethod
     def reconstruction_error(cls, Y, X, pairs=False):
         if not pairs:
-            return super().reconstruction_error(Y, X)
-
-        errors = [
-            cls._reconstruction_error(y, x)
-            for y, x in zip(Y.unbind(dim=0), X.unbind(dim=0))
-        ]
-        return torch.stack(errors)
+            result = super().reconstruction_error(Y, X)
+        else:
+            errors = [
+                super().reconstruction_error(y, x)
+                for y, x in zip(Y.unbind(dim=0), X.unbind(dim=0))
+            ]
+            result = torch.stack(errors)
+        return result
 
     def _discriminator_loss(self, X, *args):
         Y, gen_x, gen_y, *_ = args
@@ -183,11 +186,12 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(model.parameters())  # , lr=1e-3)
 
     eras = 10
-    epocs = 300
-    batch_size = 400
-    steps = 3
+    epocs = 600
+    batch_size = 300
+    steps = 1
+    i = 0
 
-    test = True
+    test = False
     if test:
         eras = 2
         epocs = 2
@@ -202,7 +206,6 @@ if __name__ == '__main__':
             continue
 
         t = trange(epocs*(1 + 3*(not era)), desc='phase_one')
-        maxloss = -1
         for epoc in t:
             next(various_stream)
             batch = various_stream.send(batch_size)
@@ -210,16 +213,18 @@ if __name__ == '__main__':
                 optimizer.zero_grad()
                 Out = model(batch, tail=None)
                 J = model.loss(batch, *Out, tail=None)
-                if J > maxloss:
-                    maxloss = J
-                # print(J)
                 t.set_description(
-                    'phase_one (loss={:.8f}) {}'.format(
-                        J / maxloss,
+                    'phase_one (loss={:.4f}) {}'.format(
+                        J,
                         '+' if not step else '-'
                     )
                 )
                 J.backward()
+                optimizer.step()
+
+        _ = model.generate(5, cond=None, tail=None)
+        for i, img in enumerate(_, i):
+            plt.imsave(f'./{i}-generated.png', img.view((28, 28)).numpy())
 
         if not era:
             # initialize gmm
@@ -235,7 +240,6 @@ if __name__ == '__main__':
 
         print('_phase_two')
         t = trange(epocs, desc='phase_two')
-        maxloss = -1
         for epoc in t:
             next(typical_stream)
             batch = typical_stream.send(M)
@@ -249,12 +253,15 @@ if __name__ == '__main__':
                 gen_y, *_ = model(gen_x, tail='disc')
                 Out = Y, gen_x, gen_y
                 J = model.loss(batch, *Out, tail='disc')
-                if J > maxloss:
-                    maxloss = J
                 t.set_description(
-                    'phase_two (loss={:.8f})'.format(J / maxloss)
+                    'phase_two (loss={:.4f})'.format(J)
                 )
                 J.backward()
+                optimizer.step()
+
+        _ = model.generate(5, cond='disc', tail=None)
+        for i, img in enumerate(_, i):
+            plt.imsave(f'./{i}-anomaly.png', img.view((28, 28)).numpy())
 
         print('_phase_three')
         for epoc in tqdm(range((1-test)*20)):

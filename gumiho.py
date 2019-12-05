@@ -17,7 +17,7 @@ class GumihoNetwork(VariationalAutoEncoder):
         super().__init__(*args, **kwargs)
         self.tails = {}
         self.losses = {}
-        self.add_tail(None, self._decoder, VariationalAutoEncoder.loss)
+        self.add_tail(None, self._decoder, self._vae_loss)
 
     def parameters(self):
         tails_params = (
@@ -36,9 +36,13 @@ class GumihoNetwork(VariationalAutoEncoder):
     def decode(self, z, *, tail=None):
         return self.tails[tail](z)
 
+    def _generate_from_z(self, z, tail=None):
+        with torch.no_grad():
+            return self.decode(z, tail=tail)
+
     def generate(self, n, *, tail=None):
         z = self._sample(n)
-        return self.decode(z, tail=tail)
+        return self._generate_from_z(z, tail)
 
     def add_tail(self, key, network, loss):
         self.tails[key] = nn.Sequential(self.eta, network)

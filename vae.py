@@ -69,8 +69,9 @@ class VariationalAutoEncoder(AutoEncoder):
 
     def generate(self, n=1):
         z = self._sample(n)
-        h = self.eta(z)
-        return self._decoder(h)
+        with torch.no_grad():
+            h = self.eta(z)
+            return self._decoder(h)
 
     def forward(self, X):
         h = self.encode(X)
@@ -84,10 +85,14 @@ class VariationalAutoEncoder(AutoEncoder):
             1 + logsigma - mu.pow(2) - logsigma.exp())
 
     @classmethod
-    def loss(cls, X, *args):
+    def _vae_loss(cls, X, *args):
         Y, mu, logsigma, *_ = args
         return cls._KL_loss(mu, logsigma) + \
-          cls.reconstruction_error(Y, X)
+            cls.reconstruction_error(Y, X)
+
+    @classmethod
+    def loss(cls, X, *args):
+        return cls._vae_loss(X, *args)
 
 
 class DisentangledVariationalAutoencoder(VariationalAutoEncoder):

@@ -139,10 +139,10 @@ class ConvDecoder(BottleNetwork):
 
 
 class AutoEncoder(BottleNetwork):
-    # _reconstruction_error = partial(F.mse_loss, size_average=False)
-    _reconstruction_error = partial(
-        F.binary_cross_entropy, size_average=False
-    )
+    _reconstruction_error = partial(F.mse_loss, size_average=False)
+    # _reconstruction_error = partial(
+    #     F.binary_cross_entropy, size_average=False
+    # )
 
     def __init__(
         self, *, bottle_size, data_shape, EncoderType, DecoderType,
