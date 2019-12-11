@@ -1,3 +1,5 @@
+NOT CURRENTLY WORKING
+
 # Gumiho-Network
 
 This is a network for unsupervised anomaly detection inspired by the neyman pearson lemma.
