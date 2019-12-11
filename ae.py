@@ -64,8 +64,13 @@ class LinearEncoder(BottleNetwork):
 
 
 class Transpose(nn.Module):
+    def __init__(self, idx=1, jdx=-1, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.idx = idx
+        self.jdx = jdx
+
     def forward(self, input):
-        return input.transpose(1, -1)
+        return input.transpose(self.idx, self.jdx)
 
 
 class Print(nn.Module):

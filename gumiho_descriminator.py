@@ -140,6 +140,7 @@ class DiscriminatorNetwork(CondGeneratorNetwork):
         # get rho is false positive rate
         M = X.size()[0]
         with torch.no_grad():
+            print('starts', self.phi)
             idx = floor(self.rho * M)
 
             encodings, scores = self._get_encoding_and_anomaly_score(X)
@@ -159,15 +160,20 @@ class DiscriminatorNetwork(CondGeneratorNetwork):
                     print('drop inf')
                     idx += 1
                     continue
+                if z != z:
+                    print('drop nan')
+                    idx += 1
+                    continue
 
                 self.phi = Phi(z, rho)
+                print('sets', self.phi)
                 break
 
 
 if __name__ == '__main__':
 
-    mixtures = 20
-    bottle_size = 12
+    mixtures = 4
+    bottle_size = 8
     data_shape = [28, 28, 1]
     h_size = 64
 
@@ -175,7 +181,7 @@ if __name__ == '__main__':
         various=50, data_shape=data_shape
     )
 
-    rho, M = .05, 300
+    rho, M = .05, 100
     model = DiscriminatorNetwork(
         rho=rho,
         mixtures=mixtures, data_shape=data_shape,
