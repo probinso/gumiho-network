@@ -13,16 +13,15 @@ from ae import Print, Transpose
 
 
 torch.set_default_dtype(torch.double)
-EPSILON = 1e-9
+EPSILON = 1e-15
 p = Print()
 t = Transpose(0, 1)
 
+scale = 5000
 
-scale = 10000
-
-count, dims = 2, 3
-std = [0.5, 1, 0.1]
-means = [(-.7, .9, .2), (0.0, 0.0, .2), (.5, .7, .2)]
+count, dims = 3, 3
+std = [0.02, 1, 0.1]
+means = [(-.7, .9, .2), (0.0, 0.0, -.2), (.5, .6, .9)]
 
 
 class GMM(nn.Module):
@@ -30,7 +29,7 @@ class GMM(nn.Module):
         super().__init__()
         self.count = count
         self.mixtures = nn.ModuleList(
-            [Mixture(dims, count) for _ in range(count)]
+            [Mixture(dims) for _ in range(count)]
         )
 
     @property
@@ -79,7 +78,9 @@ class Gaussian(nn.Module):
             nn.Parameter(
                 torch.rand(dims), requires_grad=False) - 0.5) * 2.0
         self.sigma = nn.Parameter(
-            torch.eye(dims), requires_grad=False)
+            torch.eye(dims),
+            requires_grad=False
+        )
 
     @property
     def epsilon(self):
@@ -89,35 +90,36 @@ class Gaussian(nn.Module):
             ) - 0.5) * EPSILON
 
     def forward(self, X, *, nll=True):
+        mm = partial(reduce, torch.mm)
+
         with torch.no_grad():
-            mm = partial(reduce, torch.mm)
             dims = torch.Tensor([self.dims])
-            twopidims = torch.pow(2.0 * math.pi, dims)
+            log_two_pi_dims = dims * (
+                torch.log(torch.Tensor([2.0])) +
+                torch.log(torch.Tensor([math.pi]))
+            )
 
             sigma = self.sigma + self.epsilon
             inv_sigma = torch.pinverse(sigma)
-            det_sigma = torch.det(sigma)
+
+            log_det_sigma = sigma.logdet()
+
+            log_den = 0.5 * (log_two_pi_dims + log_det_sigma)
 
             collect = []
 
             for x in X:
                 diff = (x - self.mu).unsqueeze(0)
-                _ = mm([-0.5 * diff, inv_sigma, diff.t()])
-                _ = torch.exp(_)
-                _ = _ / torch.sqrt(twopidims * det_sigma)
+                _ = mm([-0.5 * diff, inv_sigma, diff.t()]) - log_den
                 collect.append(_)
             out = torch.cat(collect)
-            return -torch.log(out) if nll else out
+            return -out if nll else torch.exp(out)
 
     def _update(self, X, likelihoods):
         """
         probs is the probability of x_i being represented by the current
         Gaussian model.
         """
-        # self.phi.data = probs.mean()
-
-        # psum = probs.sum()
-
         normalizer = likelihoods.sum()
         _m = (X * likelihoods).sum(axis=0) / normalizer
 
@@ -136,8 +138,7 @@ class Gaussian(nn.Module):
     def update(self, X, likelihoods):
         with torch.no_grad():
             _m, _s = self._update(X, likelihoods)
-            tst = self._isdumb(_m) + self._isdumb(_s)
-            if bool((tst > 0.0)):
+            if self._isdumb(_m) + self._isdumb(_s):
                 return False
 
             self.mu.data = _m
@@ -146,13 +147,13 @@ class Gaussian(nn.Module):
 
 
 class Mixture(Gaussian):
-    def __init__(self, count_of=1, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.phi = nn.Parameter(torch.Tensor([1/count_of]), requires_grad=False)
+        self.phi = nn.Parameter(torch.rand(1), requires_grad=False)
 
     def forward(self, X, *, nll=True):
-        scaled = self.phi * super().forward(X, nll=False)
-        return -torch.log(scaled) if nll else scaled
+        _ = super().forward(X, nll=nll)
+        return -(torch.log(self.phi) - _) if nll else self.phi * _
 
     def _update(self, X, likelihoods):
         self.phi.data = likelihoods.mean()
@@ -160,8 +161,7 @@ class Mixture(Gaussian):
         return _m, _s
 
 
-def test_gaussian():
-    key = 0
+def test_gaussian(key):
     mu = means[key]
     sigma = std[key]
     d = torch.distributions.MultivariateNormal(
@@ -173,13 +173,13 @@ def test_gaussian():
         X = d.sample((scale,))
         p = N(X)
         if not N.update(X, p):
+            print('break')
             break
     print(N.mu)
     print(N.sigma)
 
 
-def test_mixture():
-    key = 1
+def test_mixture(key):
     mu = means[key]
     sigma = std[key]
     d = torch.distributions.MultivariateNormal(
@@ -189,7 +189,7 @@ def test_mixture():
     N = Mixture(1, dims)
     X = d.sample((scale,))
     for i in tqdm(range(100)):
-        p = N(X, nll=False)
+        p = N(X)
         if not N.update(X, p):
             break
     print(N.mu)
@@ -209,22 +209,20 @@ def test_gmm():
             torch.diag(torch.Tensor([s] * dims))
         ) for m, s in zip(means, std)
     ]
-    samples = [d.sample((scale,)) for i, d in enumerate(dists, 1)]
+    samples = [d.sample((scale * i,)) for i, d in enumerate(dists, 1)]
     X = torch.cat(samples)
 
-    # print(X.data)
-
-    for _ in range(80):
+    for _ in tqdm(range(80)):
         score = gmm(X)
         gmm.update(X, score)
 
-        # a, b = torch.max(score, 0)
+    for idx, _ in enumerate(gmm.mixtures):
+        print(
+            gmm.mixtures[idx].mu.data,
+            torch.diag(gmm.mixtures[idx].sigma).data,
+            gmm.mixtures[idx].phi.data
+        )
 
-        # for i in b.unique():
-        #     print(*[i, ':', int((i == b).sum())])
-    print(gmm.mixtures[0].mu.data, torch.diag(gmm.mixtures[0].sigma).data)
-    print(gmm.mixtures[1].mu.data, torch.diag(gmm.mixtures[1].sigma).data)
-    print(gmm.mixtures[2].mu.data, torch.diag(gmm.mixtures[2].sigma).data)
     print('----------')
     print(*means, sep='\n')
     print('----------')
@@ -236,4 +234,4 @@ def test_gmm():
 
 
 if __name__ == '__main__':
-    test_mixture()
+    test_gmm()
