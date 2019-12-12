@@ -101,9 +101,7 @@ class Gaussian(nn.Module):
 
             sigma = self.sigma + self.epsilon
             inv_sigma = torch.pinverse(sigma)
-
             log_det_sigma = sigma.logdet()
-
             log_den = 0.5 * (log_two_pi_dims + log_det_sigma)
 
             collect = []
