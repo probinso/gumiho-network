@@ -18,7 +18,25 @@ p = Print()
 t = Transpose(0, 1)
 
 
-class GMM(nn.Module):
+class ExpNormalizer:
+    @classmethod
+    def exp_norm(cls, affiliations):
+        # https://timvieira.github.io/blog/post/2014/02/11/exp-normalize-trick/
+        dims = affiliations.shape[1]
+        b, _ = affiliations.max(axis=1)
+        b = b.view(-1, 1).repeat(1, dims)
+        num = torch.exp(affiliations - b)  # y
+        den = num.sum(axis=1).view(-1, 1).repeat(1, dims)
+
+        if False:
+            idx = torch.isnan(num)
+            num[idx] = 0
+
+        out = torch.div(num, den)
+        return out
+
+
+class GMM(nn.Module, ExpNormalizer):
     def __init__(self, count, dims):
         super().__init__()
         self.count = count
@@ -36,21 +54,9 @@ class GMM(nn.Module):
         affiliations = self.forward(X)
         return -affiliations.sum(axis=1)
 
-    @classmethod
-    def exp_norm(cls, affiliations):
-        # https://timvieira.github.io/blog/post/2014/02/11/exp-normalize-trick/
-        dims = affiliations.shape[1]
-        b, _ = affiliations.max(axis=1)
-        b = b.view(-1, 1).repeat(1, dims)
-        y = torch.exp(affiliations - b)
-        idx = torch.isnan(y)
-        y[idx] = 0
-        out = torch.div(y, y.sum(axis=1).view(-1, 1).repeat(1, dims))
-        return out
-
     def forward(self, X, *, ll=True, normalize=True):
         num = t(torch.stack(
-            [model(X, ll=ll) for model in self.mixtures]
+            [model(X, ll=ll, normalize=False) for model in self.mixtures]
         )).squeeze()
         if normalize:
             out = self.exp_norm(num)
@@ -63,8 +69,9 @@ class GMM(nn.Module):
             if not model.update(X, affiliations[:, idx].unsqueeze(1)):
                 raise "hell"
         if show:
+            _phi = torch.Tensor([model.phi for model in self.mixtures])
             print('summary:', affiliations.argmax(dim=0))
-            print('phi:    ', torch.Tensor([model.phi for model in self.mixtures]))
+            print('phi:    ', _phi)
 
 
 class Gaussian(nn.Module):
@@ -145,18 +152,18 @@ class Gaussian(nn.Module):
             return True
 
 
-class Mixture(Gaussian):
+class Mixture(Gaussian, ExpNormalizer):
     def __init__(self, dims, phi=torch.ones((1)), *args, **kwargs):
         super().__init__(dims, *args, **kwargs)
         self.phi = nn.Parameter(phi, requires_grad=False)
 
-    def forward(self, X, *, ll=True):
+    def forward(self, X, *, ll=True, normalize=True):
         _ = self.phi * super().forward(X, ll=ll)
-        return _
+        return self.exp_norm(_) if normalize else _
 
-    def _update(self, X, associations):
-        self.phi.data = associations.mean()
-        _m, _s = super()._update(X, associations)
+    def _update(self, X, affiliations, normalize=True):
+        self.phi.data = affiliations.mean()
+        _m, _s = super()._update(X, affiliations)
         return _m, _s
 
 
@@ -233,7 +240,7 @@ def test_gmm(scale, iters, count, dims, std, m, *args):
 
 
 if __name__ == '__main__':
-    scale = 1000
+    scale = 500
 
     iters = 80
     count, dims = 3, 3
