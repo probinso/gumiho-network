@@ -107,7 +107,6 @@ class Gaussian(nn.Module):
             log_den = 0.5 * (log_two_pi_dims + log_det_sigma)
 
             collect = []
-
             for x in X:
                 diff = (x - self.mu).unsqueeze(0)
                 _ = mm([-0.5 * diff, inv_sigma, diff.t()]) - torch.exp(log_den)
