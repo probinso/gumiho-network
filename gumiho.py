@@ -34,7 +34,12 @@ class GumihoNetwork(VariationalAutoEncoder):
         return Y, mu, logsigma
 
     def decode(self, z, *, tail=None):
-        return self.tails[tail](z)
+        if tail is None:  # XXX make advanced context manager
+            h = self.eta(z)
+        else:
+            with torch.no_grad():
+                h = self.eta(z)
+        return self.tails[tail](h)
 
     def _generate_from_z(self, z, tail=None):
         with torch.no_grad():
@@ -45,7 +50,7 @@ class GumihoNetwork(VariationalAutoEncoder):
         return self._generate_from_z(z, tail)
 
     def add_tail(self, key, network, loss):
-        self.tails[key] = nn.Sequential(self.eta, network)
+        self.tails[key] = network
         self.losses[key] = loss
 
     def loss(self, X, *params, tail=None):
