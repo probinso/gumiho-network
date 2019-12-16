@@ -5,7 +5,6 @@ from matplotlib import pyplot as plt
 from tqdm import tqdm
 
 import torch
-import torch.nn as nn
 
 from vae import AutoEncoder, VariationalAutoEncoder, \
     ConvEncoder, ConvDecoder, \

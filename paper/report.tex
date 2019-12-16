@@ -139,7 +139,10 @@ to the audio stream, or looking at it's spectrogram, which takes $\sim$ 2-20 min
 for every 5 minutes of audio. This is intractable at scale.
 Unfortunately, audio data is known to be high dimensional, making it
 very difficult to label raw input streams. Additionally, the properties of
-\aa are not necessarily known a priori.  \texttt{NEEDS REFERNCE AND NP-PAPER}
+\aa are not necessarily known a priori. It is known that unsupervised anomaly detectors,
+leveraging \vae are successful for acoustic anomaly detection\cite{Koizumi:2019:UDA:3282584.3301702}.
+This is an exploration of one of these models as a means to identify when whales
+are vocalizing.
 
 \end{abstract}
 
@@ -244,8 +247,8 @@ and decompression functions. The lossy characteristic of these mapping functions
 expressed in image data as a blurry recreation of the original content.
 
 \resizebox{.8\columnwidth}{!}{\input{./ae.tex}}
-\pagebreak
-\lstinputlisting[firstline=141, lastline=181]{../ae.py}
+
+\lstinputlisting[firstline=146, lastline=185, firstnumber=146]{../ae.py}
 
 
 \subsection{\vae}
@@ -263,7 +266,7 @@ Kullback Leibner divergence, to constrain the latent space to a gaussian manifol
 \[J^{KLR}=J^R + KL(z||\mathcal{N}(0, 1))\]
 
 \resizebox{.8\columnwidth}{!}{\input{./vae.tex}}
-\lstinputlisting[firstline=23, lastline=90]{../vae.py}
+\lstinputlisting[firstline=23, lastline=90, firstnumber=23]{../vae.py}
 
 \subsection{Rejection Sampling}
 
@@ -347,7 +350,7 @@ optimized, not only for reconstruction but, for various additional goals like cl
 The \texttt{add\_tail(self, network, loss)} method requires the network can be fed by an $h$
 dimensional linear layer.
 
-\lstinputlisting[firstline=15, lastline=49]{../gumiho.py}
+\lstinputlisting[firstline=14, lastline=56, firstnumber=14]{../gumiho.py}
 
 
 \subsection{\condgen}
@@ -360,14 +363,19 @@ tail elected to be specified by the user. For the final model this is a mechanis
 \GMM to be used for conditioning and the reconstructor to be used to generate anaomolies
 as found in the reference materials.
 
-\lstinputlisting[firstline=35, lastline=63]{../gumiho_descriminator.py}
+\lstinputlisting[firstline=37, lastline=65, firstnumber=37]{../gumiho_descriminator.py}
 
 \subsection{\desc}
 
 The \desc models the machine specified\cite{1810.09133} for unsupervised anomaly detection.
 There are three tails, one for training the \GMM, one for discrimination, and one for
-reconstruction. The code for this model is found in the repository instead of this paper due
+reconstruction.
+
+\lstinputlisting[firstline=37, lastline=68, firstnumber=37]{../gmm.py}
+
+The code for this model is found in the repository instead of this paper due
 to its complexity.
+
 
 \section{Data}
 
@@ -384,6 +392,8 @@ original intent is to inform algorithms of had written digit recognition for the
 service. For this term project, \mnist was used to more consistently and reproducibly
 explore model building.
 
+\lstinputlisting[firstline=188, lastline=231, firstnumber=188]{../ae.py}
+
 In this trained model, the digits listed as $\{1, 7, 4\}$ were labeled as anomalous. Any other
 digit were described as typical events. The expectation of a trained network is to
 generate high accuracy reconstructions of $\{2,3,5,6,8,9\}$ and low accuracy reconstructions of
@@ -396,9 +406,10 @@ $\{1, 7, 4\}$ compile.
 \end{multicols}
 
 The images above are sources and their paired results from passing the \mnist data through
-the trained \vae with loss of mean squared error.
+the trained \vae with loss of mean squared error. It is apparent by adjusting the networks
+that using convolutions and ending the networks with sigmoid result in much higher quality
+yields.
 
-\lstinputlisting[firstline=183, lastline=226]{../ae.py}
 
 
 
@@ -503,16 +514,23 @@ studied image dataset. For this project the target dataset is described in the n
 
 \section{Results}
 
-Unfortunately, this model never completely worked. I believe that the implementation is very close,
-however there are training steps that are not updating as expected. I believe that this is consequent
-of a lack of knowledge about \pytorch over the actual model. The code is written in a very clean and
-explainable way that mirrors the writings of the research paper. This will make the project
-much easier to source instruction and advise to improve. Additionally, in pursuit of a working solution
-the model is implemented to process over streaming data, and leverages concurrency libraries for the
-most time expensive sections. The training time of the model is currently on the order of 6 hours
-for a modern laptop without CUDA support.
+With a small enough dataset and low enough embedding dimmension, the model trains. It is observable
+that training decresses loss making \tpr and \fpr seperate, respecting the expected behavour by the
+\np. It is also clear that changing out the \encoder and \decoder networks between linear and
+convolutional significanly improves performance for reconstructions. Finally, tailing the \decoder
+network with a \texttt{sigmoid} layer improves performance as well. As an alternative to using
+\texttt{sigmoid} finishing layer, the model can be traned on \texttt{binary cross entropy} loss,
+but in conjunction seems to have no better performance.
 
-The code in it's current state can be found on cslu's gitlab repository\footnote{\texttt{repo.cslu.ohsu.edu/probinso/hydra-anomaly-autoencoder.git}}
+The \GMM has underflow errors when appropriate dimmensions for the ACO dataset are selected.
+To treat this the forward pass generates log-likelihoods, however there are complications in
+the update step that prevent continuing to work in log space, once we add the $\phi_i$
+parameters.
+
+
+\lstinputlisting[firstline=71, lastline=165, firstnumber=71]{../gmm.py}
+
+The code can be found in it's current state on github.\footnote{\texttt{https://github.com/probinso/gumiho-network}}
 
 \bibliography{references}{}
 \bibliographystyle{plain}

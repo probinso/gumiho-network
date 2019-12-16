@@ -25,9 +25,9 @@ if __name__ == '__main__':
     scale = 500
 
     iters = 80
-    count, dims = 2, 2
+    count, dims = 3, 2
     std = [0.1, 0.1, 0.01]
-    m = [(-.8, -.8, -.4), (0.8, 0.8, -0.5), (.9, .7, .9)]
+    m = [(-.8, -.8, -.4), (0.0, 0.0, -0.5), (.9, .7, .9)]
 
     dists = [
         torch.distributions.MultivariateNormal(

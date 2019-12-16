@@ -12,7 +12,7 @@ from tqdm import tqdm
 from ae import Print, Transpose
 
 
-torch.set_default_dtype(torch.double)
+# torch.set_default_dtype(torch.double)
 EPSILON = 1e-15
 p = Print()
 t = Transpose(0, 1)
@@ -49,8 +49,8 @@ class GMM(nn.Module, TOPROB):
         return (torch.rand(1) - 0.5) * EPSILON
 
     def mixed_nll(self, X):
-        affiliations = self(X)
-        return -affiliations.sum(axis=1)
+        ll = self(X)
+        return -ll.sum(axis=1)
 
     def forward(self, X):
         ll = t(torch.stack([model(X) for model in self.mixtures])).squeeze()
@@ -191,24 +191,6 @@ def test_gaussian(scale, iters, count, dims, std, m, key):
     N.update(X)
     print(N.mu)
     print(N.sigma)
-
-
-# def test_mixture(scale, iters, count, dims, std, m, key):
-#     mu = m[key][:dims]
-#     sigma = std[key]
-#     d = torch.distributions.MultivariateNormal(
-#         torch.Tensor(mu),
-#         torch.diag(torch.Tensor([sigma] * dims))
-#     )
-#     N = Mixture(dims)
-#     X = d.sample((scale,))
-#     for i in tqdm(range(100)):
-#         p = N(X)
-#         if not N.update(X, p):
-#             break
-#     print(N.mu)
-#     print(N.sigma)
-#     print(N.phi)
 
 
 def gmm_thing(X, iters, count, dims, std, m, Type=GMM):

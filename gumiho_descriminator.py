@@ -9,10 +9,10 @@ import torch
 
 import matplotlib.pyplot as plt
 
-from ae import ConvEncoder, ConvDecoder, Identity
+from gmm import GMM
+from ae import ConvEncoder, ConvDecoder, Identity, Print
 from vae import GaussianSample
 from gumiho import GumihoNetwork, data_initializer
-from gmm import GMM
 
 import psutil
 import ray
@@ -21,6 +21,8 @@ ray.init(
     memory=8*1024*1024*1024,
     object_store_memory=3*1024*1024*1024
 )
+p = Print()
+# torch.set_default_dtype(torch.double)
 
 
 @ray.remote
@@ -65,6 +67,7 @@ class CondGeneratorNetwork(GumihoNetwork):
 
 class DiscriminatorNetwork(CondGeneratorNetwork):
     def __init__(self, *, rho, mixtures, DecoderType, **kwargs):
+        self.remaps = set()
         super().__init__(DecoderType=DecoderType, **kwargs)
 
         self.rho = rho
@@ -89,10 +92,19 @@ class DiscriminatorNetwork(CondGeneratorNetwork):
 
     def _MMLoss(self, X, *args):
         z, *_ = args
+        print(z)
+        p(z)
         return self.MM(z)
+
+    def decode(self, z, *, tail=None):
+        if tail in self.remaps:
+            return super().decode(z, tail=tail)
+        else:
+            return self.tails[tail](z)
 
     def add_tail(self, key, network, loss, remap=True):
         if remap:
+            self.remaps.add(key)
             super().add_tail(key, network, loss)
         else:
             self.tails[key] = network
@@ -172,8 +184,8 @@ class DiscriminatorNetwork(CondGeneratorNetwork):
 
 if __name__ == '__main__':
 
-    mixtures = 4
-    bottle_size = 8
+    mixtures = 3
+    bottle_size = 2
     data_shape = [28, 28, 1]
     h_size = 64
 
@@ -181,7 +193,7 @@ if __name__ == '__main__':
         various=50, data_shape=data_shape
     )
 
-    rho, M = .05, 100
+    rho, M = .05, 300
     model = DiscriminatorNetwork(
         rho=rho,
         mixtures=mixtures, data_shape=data_shape,
@@ -192,7 +204,7 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(model.parameters())  # , lr=1e-3)
 
     eras = 10
-    epocs = 300
+    epocs = 500
     batch_size = 400
     steps = 1
     i = 0
@@ -201,7 +213,7 @@ if __name__ == '__main__':
     if test:
         eras = 2
         epocs = 2
-        batch_size = 10
+        batch_size = 100
         steps = 1
 
     for era in range(eras):
@@ -242,6 +254,8 @@ if __name__ == '__main__':
                         Out = model(batch, tail='MM')
                         J = model.loss(batch, *Out, tail='MM')
                         z, *_ = Out
+                        print(J)
+                        print(z)
                         model.MM.update(z, J)
 
         print('_phase_two')
