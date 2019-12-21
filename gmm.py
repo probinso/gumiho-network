@@ -19,19 +19,29 @@ t = Transpose(0, 1)
 
 
 class TOPROB:
-    @classmethod
-    def aff_to_prob(cls, affiliations):
-        p = torch.exp(affiliations)
-        idx = torch.isnan(p)
-        drop_count = idx.sum()
-        if drop_count:
-            print('dropped nans:', drop_count)
-        p[idx] = EPSILON
-        return p
+    # @classmethod
+    # def aff_to_prob(cls, affiliations):
+    #     p = torch.exp(affiliations)
+    #     idx = torch.isnan(p)
+    #     drop_count = idx.sum()
+    #     if drop_count:
+    #         print('dropped nans:', drop_count)
+    #     p[idx] = EPSILON
+    #     return p
+    #
+    # @classmethod
+    # def norm_prob(cls, probs):
+    #     return probs / probs.sum(axis=1)[:, None]
 
     @classmethod
-    def norm_prob(cls, probs):
-        return probs / probs.sum(axis=1)[:, None]
+    def exp_normalize(cls, affiliations):
+        BLOCK = torch.ones_like(affiliations)
+        values, _ = affiliations.max(dim=1, keepdims=True)
+        b = BLOCK * values
+        num = torch.exp(affiliations - b)
+        den = BLOCK * num.sum(axis=1, keepdims=True)
+        norm = torch.div(num, den)
+        return norm
 
 
 class GMM(nn.Module, TOPROB):
@@ -57,7 +67,8 @@ class GMM(nn.Module, TOPROB):
         return ll
 
     def update(self, X, log_affiliations, show=False):
-        prob = self.norm_prob(self.aff_to_prob(log_affiliations))
+        # prob = self.norm_prob(self.aff_to_prob(log_affiliations))
+        prob = self.exp_normalize(log_affiliations)
         for idx, model in enumerate(self.mixtures):
             p = prob[:, idx].unsqueeze(1)
             if not model.update(X, p):
